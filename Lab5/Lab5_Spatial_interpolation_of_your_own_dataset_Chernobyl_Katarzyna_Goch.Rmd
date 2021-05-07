@@ -1,0 +1,146 @@
+---
+title: "Lab5: Spatial interpolation of your own data"
+author: "Katarzyna Goch"
+date: "24 Nov 2018"
+output: html_document
+---
+
+This is the report for the fifth assignment "Spatial interpolation of your own dataset" from course "Analysis of Spatio-Temporal Data", WS 2018/19.  
+Supervisor: prof. Edzer Pebesma
+
+```{r setup, include=FALSE}
+
+library(sp)
+library(gstat)
+library(rgdal)
+library(mapview)
+
+```
+  
+****************
+
+
+## Import your own geostatistical dataset in R
+I am using the sama data as in Assignment 04.
+
+* Kashparov, V.; Levchuk, S.; Zhurba, M.; Protsak, V.; Khomutinin, Yu.; Beresford, N.A.; Chaplow, J.S. (2017). Spatial datasets of radionuclide contamination in the Ukrainian Chernobyl Exclusion Zone. NERC Environmental Information Data Centre. https://doi.org/10.5285/782ec845-2135-4698-8881-b38823e533bf
+  
+```{r, fig.align='center', fig.width=9}
+# Read in the data
+df1 <- read.csv2("Chernobyl_pH.csv",
+                header=TRUE,
+                quote="\"",
+                stringsAsFactors = FALSE,
+                strip.white = TRUE)
+
+# Get Longitue and latitude data from data frame
+myPoints <- df1
+myPoints$Latitude<- as.numeric(as.character(df1$Latitude))
+myPoints$Longitude<- as.numeric(as.character(df1$Longitude))
+myPoints$pH_H20<- as.numeric(as.character(df1$pH_H20))
+coordinates(myPoints)<-~Longitude+Latitude
+proj4string(myPoints) <- CRS("+init=epsg:4326")
+ph<-spTransform(myPoints,CRS=CRS("+init=epsg:32635"))
+
+# Remove overlapping measurement
+ph <- ph[-zerodist(ph)[,1],]
+
+mapview(ph,zcol="pH_H20", at=seq(3,9,1), map.types = "OpenStreetMap", legend=TRUE, layer.name=c("pH in H2O"), cex="pH_H20")
+
+# Fit for the data from the 50 km cutoff
+v <- variogram(pH_H20~1,data=ph[!is.na(ph$pH_H20),], cutoff = 20000, width=200)
+v.fit = fit.variogram(v, vgm(0.6,"Exp",3000))
+plot(v, v.fit)
+
+```
+  
+## Create a prediction grid (see lecture slides) covering your study area
+```{r, fig.align='center', fig.width=9}
+# Create a grid
+x = seq(663591, 737845, 1000)
+y = seq(5649073,	5715455, 1000)
+grd = expand.grid(x = x, y = y)
+head(grd)
+coordinates(grd) <-~x+y
+gridded(grd)=TRUE
+proj4string(grd) <- CRS("+init=epsg:32635") 
+summary(grd)
+
+```
+  
+## Interpolate your variable using the variogram model you fitted in the previous assignment
+```{r, fig.align='center'}
+# model used:
+v.fit
+
+# Krige
+k = krige(pH_H20~1, ph[!is.na(ph$pH_H20),], grd, v.fit)
+summary(k["var1.pred"])
+
+# Save the results
+sum1<-capture.output(summary(k["var1.pred"])[7])
+```
+  
+## Visualise the results
+```{r, fig.align='center', fig.width=9}
+# Visualize
+spplot(k["var1.pred"], main = "pH in H2O predictions. Model: Exp, sill: 0.607, range: 222")
+
+```
+  
+## Experiment with changing the variogram model: increase and decrease the nugget variance, increase and decrease the range parameter, and discuss how the resulting map changes.
+  
+**1. Range changed from 222 m to 500 m**
+  
+```{r, fig.width=9}
+# Chcange the range of the model to 10 km
+v.fit = vgm(0.607,"Exp",500)
+# Krige
+k = krige(pH_H20~1, ph[!is.na(ph$pH_H20),], grd, v.fit)
+spplot(k["var1.pred"], main = "pH in H2O predictions. Model: Exp, still: 0.607, range: 500 m")
+
+# Save results
+sum2<-capture.output(summary(k["var1.pred"])[7])
+
+```
+
+  
+**2. Range changed to 1 km**
+  
+```{r, fig.width=9}
+# Chcange the model to Sph
+v.fit = vgm(0.607,"Exp",1000)
+# Krige
+k = krige(pH_H20~1, ph[!is.na(ph$pH_H20),], grd, v.fit)
+spplot(k["var1.pred"], main = "pH in H2O predictions. Model: Exp, still: 0.607, range: 1 km")
+
+#Save results
+sum3<-capture.output(summary(k["var1.pred"])[7])
+```
+
+ 
+ **3. Range not changed, but sill changed to 0.2**
+  
+```{r, fig.width=9}
+# Chcange the model to Sph
+v.fit = vgm(0.2,"Exp",222)
+# Krige
+k = krige(pH_H20~1, ph[!is.na(ph$pH_H20),], grd, v.fit)
+spplot(k["var1.pred"], main = "pH in H2O predictions. Model: Exp, still: 0.2, range: 222 m")
+
+#Save results
+sum4<-capture.output(summary(k["var1.pred"])[7])
+``` 
+**4. Compare the results**
+  
+```{r}
+# Comprae the results
+out_comp <- matrix(c(sum1[3],sum2[3],sum3[3], sum4[3],sum1[8],sum2[8],sum3[8], sum4[8], sum1[5],sum2[5],sum3[5], sum4[5]),ncol=4,byrow=TRUE)
+colnames(out_comp) <- c("'Base model","Range 500 m","Range 1 km", "Sill 0.2")
+as.table(out_comp)
+
+```
+We can see the differece in the output values when the range was changed. No difference was observed, when the still was amended (?).
+  
+  
+## (bonus:) try to create a set of (say 10) conditional simulations for your dataset. How do these differ from interpolations?

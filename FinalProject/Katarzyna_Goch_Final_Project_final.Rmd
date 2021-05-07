@@ -1,0 +1,570 @@
+---
+title: "Suburbanization in Poland"
+author: "Katarzyna Goch"
+date: "15 March 2019"
+output: html_document
+---
+
+This is the report for the final assignment from course "Analysis of Spatio-Temporal Data", WS 2018/19.  
+  Supervisor: prof. Edzer Pebesma.
+  
+****************
+  
+# Aim and scope of the study
+
+Spatial planning in Poland faces several challenges. The far-reaching planning autonomy of basic local government units joined with the process of issuing building permits based on administrative decisions in case of a lack of the local spatial development plans results in excessive and development of built-up areas. Especially negative in this context is the phenomena of suburbanization, which "is a population shift from central urban areas into suburbs, resulting in the formation of (sub)urban sprawl" [Wikipedia](https://en.wikipedia.org/wiki/Suburbanization).
+  The roots of the issue of suburbanization were briefly described in the report on the spatial planning determinants of cohesion policy implementation in Polish regions (Komornicki et al., 2019, in print): The current Spatial Planning and Land Development Act has been in force since 2003. The Act invalidated former local spatial development plans (adopted before 1994). Since only few municipalities managed to adopt the new plans after 1995, legislators decided to facilitate investments in the areas that were not covered by local spatial development plans. This was possible on the basis of “decision on land development or building permission for public purpose investment”. Coverage by local spatial development plans at the moment of passing the Act amounted to ca. 23%, and currently it is close to 30% of the Poland's area.The undertaken solutions and the low coverage of binding planning documents resulted in a strong, deepening crisis concerning land management, including the high costs of servicing dispersed, chaotic settlement on the outskirts of cities.
+  The aim of the project is to analyze spatiotemporal characteristics of population distribution in Poland in years 2002-2017 and to observe the distribution patterns. Moreover, the goal of the project is to observe the phenomena of suburbanization in the vicinity of the main Polish cities. In the following project the population data in NUTS 4 (counties) in years 2002-2017 will be analyzied. The borders of counties were obtained from the shapefile with counties borders. Data are available from Local Data Bank and National Official Register of Territorial Division of the Country:
+  
+  * https://bdl.stat.gov.pl/BDL/start
+  * http://www.gugik.gov.pl/
+  
+  **Hypothesis (H0) tested in this project states that there is no suburbanization effect taking place in the Polish counties**
+  
+  **The alternative hypothesis (H1) suburbanization is a process occuring around the main Polish cities in the period 2002 - 2017. This means that the population in the cities themselves decrease, wheras the population in the adjacent counties insreseas.**
+  
+  **The second alternative hypothesis (H2) tested in the project is that there can be suburbanization observed in the areas of the main Polish cities, however, not in all of them.**
+
+```{r setup, include=FALSE}
+library(sp)
+library(spatstat)
+library(gstat)
+library(rgdal)
+#library(forecast)
+library(ggplot2)
+library(sf)
+library(dplyr)
+library(spdep)
+
+```
+  
+****************
+
+# Methodology
+
+Firstly, the data was collected and prepared for the further analysis.Data obtained provided absolute number of people leaving in cuntries. For the purpose of the study, the increase of population between the years was calculated. 
+  Secondly, the the population increase in Poland in years 2002 - 2017 was mapped and examined. The spatial correlation of population in counties was examined using Moran's I Test.
+  In the next step, the main cities with their adjacent counties (potential suburban ares) were selected (with population over 500 000 people) ([Szukalski, 2015](http://dspace.uni.lodz.pl/xmlui/bitstream/handle/11089/11164/2015-04%20Suburbanizacja.pdf?sequence=1&isAllowed=y)). Population increase in these areas was plotted and examined.
+  Finally, spatial correlation in the cities and surrounding counties in the consecutive years were measured using Moran's I Test. 
+
+****************
+
+# Collect and prepare data
+
+Population data and polygon data were obtained from Local Data Bank and National Official Register of Territorial Division of the Country. Date of access: 3rd Jan 2019.
+https://bdl.stat.gov.pl/BDL/start
+http://www.gugik.gov.pl/
+  
+## Population data
+
+Popularion data was obtained from BDL on the 07/01/2019.
+![Population_data_link](figures/population_data.png)
+
+
+The time series starts in 2002 and finishes in 2017.Data werer collected anually, number of observations is 16:
+  Start:
+  End: 2017
+  Number of observations: 16
+  Frequency: 1 year
+
+  Number of counties in Poland is 380. Due to the change of borders change, two counties were merged and 299 counties were analyzde.
+
+## Loading population datatset
+The population data used in the projects shown disturbing values for years 2009-2010. That was caused by the change of the methodology.
+  According to National Office Register, population balance for years 2002-2009 was developed on the basis of the results of the 2002 National Census. The 2002 National census showed the population of Poland about 392 000 smaller in relation to the population balances at that time.Since 2010, the base of the balance of state and population structure is the results of the 2011 National Census
+  Secondly, the population balance was prepared until 2009 for two categories of population residence: 1) actually residing, 2) registered for permanent residence. Since 2010, the population balance has been drawn up for one category of population.
+  Balance data for the permanent and actual population as well as the ratios for 2010, the base of which was the data from the Census of 2002, are of historical value only. Therefore population data for 2010 and population increase in period 2009-2010 was excluded from the further analysis.
+
+```{r}
+# Load the data and check
+pop_df <- read.csv2("LUDN_2002_2017_powiaty_csv.csv",
+                header=TRUE,
+                quote="\"",
+                stringsAsFactors = FALSE,
+                strip.white = TRUE)
+# Drop last column (empty)
+pop_df[19]<-NULL
+# Chnage columns names
+colnames(pop_df) <- c("kod","nazwa","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017")
+# Look at the dataset
+#head(pop_df)
+
+```
+
+County "m. Wałbrzych" no 263000 was merged with county "powiat wałbrzyski" no 221000 after 2002 and seperated again in 2013. Therefore number of population from those counties was summed. The merged county has number 221000.The deleted counties were:
+  * "Powiat m. Wałbrzych do 2002" (Wałbrzych city before 2002), no 263000
+  * "Powiat m. Wałbrzych po 2013" (Wałbrzych city after 2013), no 265000  
+```{r}
+# <-------- Join two counties -------->
+## First, NA values were changed into 0
+pop_df[is.na(pop_df)]<-0
+## Then values for "m. Wałbrzych" 263000 and "powiat wałbrzyski" 221000 were merged for into one "powiat wałbrzyski"
+newrow <- pop_df[21,3:18] + pop_df[29,3:18] + pop_df[31,3:18]
+pop_df[21,3:18] <- newrow
+## Delete row 29 and 31
+pop_df <- pop_df[-c(29,31), ]
+```
+
+In the project the increase of population in counties instead of the absolute population values was analyzed. 
+  The population increase $i$ in year $t$  was calculated on the basis of population $pop$ using equation:
+  $$i_{t}=\frac{pop_{t}-pop_{t-1}}{pop_{t-1}}$$
+
+```{r}
+# <-------- Store data for the total population -------- >
+## Create df with the main cities 
+mainCities <- pop_df[pop_df$`2017`>500000,]
+## Create df with the summary population
+pop_cols<-names(pop_df)
+
+# <-------- Population increase in Poland --------- >
+pop_all <- pop_df
+## Remove columns with name and code
+pop_all["kod"]<-NULL
+pop_all["nazwa"]<-NULL
+
+pop_all_total <- as.matrix(colSums(pop_all))
+
+## Calculate the population increase for the whole country
+for (i in 1:17){
+  pop_all_total[i+16]<-pop_all_total[i+1]-pop_all_total[i]
+  pop_all_total[i+16]<-(pop_all_total[i+16]/pop_all_total[i])
+}
+
+## Remove old columns
+pop_all_increase <- pop_all_total[17:31]
+
+## Remove increse 2009-2010 due to the error in the data (changed methodology)
+pop_all_increase <- pop_all_increase[which(pop_all_increase<0.009)]
+
+pop_all_increase <- as.data.frame(pop_all_increase)
+rownames(pop_all_increase)<-c("2003.1.all","2004.1.all","2005.1.all","2006.1.all","2007.1.all","2008.1.all","2009.1.all","2011.1.all","2012.1.all","2013.1.all","2014.1.all","2015.1.all","2016.1.all","2017.1.all")
+
+## Create time series
+pop_all_ts<-ts(pop_all_increase,start=2002, end=2017, frequency=1)
+
+## Plot time series
+ts.plot(pop_all_ts, main = "Population increase in Poland", ylab="Population change in Poland")
+```
+  
+  From the popluation increase plot in Poland it can be observed, that the population increase was varied, but in a vary small scale. Overall, it can be said that it was rather stable and slightly below zero. This means, that the total population of Poland was slowly decreasing over time.
+
+```{r}
+
+# <-------- Calculate popultion increase in counties -------->
+for (i in 3:17){
+  pop_df[i+16]<-(pop_df[pop_cols[i+1]]-pop_df[pop_cols[i]])
+  pop_df[i+16]<-(pop_df[i+16]/pop_df[pop_cols[i]])
+}
+
+# <-------- Simplify the data -------->
+## Delete name and code and population
+pop_df[2:18]<-NULL
+
+# <-------- Create time series with population increase -------->
+## Copy and simplify population data
+pop_t<-pop_df
+pop_t["kod"]<-NULL
+
+# <-------- Data in 2010 were with an ERROR, thus 2009-2010 increase was deleted from the datatset -------->
+pop_t["2010.1"]<-NULL
+pop_t<-as.data.frame(t(pop_t))
+
+## Create time series from the transpozed population data
+pop_ts<-ts(pop_t, start=2003, end=2016, frequency=1)
+
+# Plot time series
+## Plot should be amended with the different scale and X asis
+plot(pop_ts, plot.type="single", ylab="Change of population", xlab="year", col=rainbow(20), main="Population change in counties")
+```
+  
+  From the plot showing population change in countis it can be observed that the overall population change was around 0. Only a few counties shown differences significant, in relation to the whole country.
+
+## Polygon data
+Shapefile with counties borders was obtained from GUGIK on 03/01/2019.
+![Polgyon_data](figures/polygon_data.png)
+
+## Load polygon data
+Polygon data was obtained as a shapefile. Data had ETRS89 Poland CS92 (EPSG: 2180) projected coordinate system assigned.
+```{r}
+## Load shp
+counties <- readOGR("powiaty","powiaty")
+counties <- spTransform(counties,CRS("+init=epsg:2180"))
+
+counties@data$jpt_kod_je<-as.numeric(as.character(counties@data$jpt_kod_je))
+counties_sf<- st_as_sf(counties)
+```
+Data for county "m. Wałbrzych" no 265 was summed with data for county "powiat wałbrzyski" no 221. Therefore these two polygons were merged as well. The merged county has number 221.
+```{r}
+# Merge two polygons
+WalbrzychCity <- counties[counties$jpt_kod_je == 265,]
+WalbrzychCity_sf<-st_as_sf(WalbrzychCity)
+
+WalbrzychCounty <- counties[counties$jpt_kod_je == 221,]
+WalbrzychCounty_sf<-st_as_sf(WalbrzychCounty)
+
+# Union the polygons into a new county and set the number to 221
+newcounty<-st_union(WalbrzychCity_sf,WalbrzychCounty_sf)
+newcounty$jpt_kod_je<-221
+
+# Join the new poygon with the rest of counties
+## Substract all the counties, that are not Walbrzych or Walbrzych county
+othercounties<-counties_sf[which(counties_sf$jpt_kod_je!=265 & counties_sf$jpt_kod_je!=221),]
+
+## Combine it with the new county no 221
+counties_sf$jpt_kod_je[counties_sf$jpt_kod_je == 265] = 221
+
+##Drop useless columns
+counties_sf[1:3]<-NULL
+counties_sf[2:23]<-NULL
+counties_sf[2:4]<-NULL
+```
+
+## Join population and polygon data
+The population dataframe and the shapefile was joined using the codes of the units. 
+```{r}
+# Merge counties polygons and population data
+pop_df = mutate(pop_df, ID = as.numeric(kod)/1000)
+counties_sf = mutate(counties_sf, ID = (as.numeric(jpt_kod_je)/1))
+full_counties_with_2010 <- left_join(counties_sf, pop_df)
+
+# Data for 2010 was deleted due to the errors
+full_counties <- full_counties_with_2010
+full_counties["2010.1"] <- NULL
+```
+
+****************
+
+# Map and examine population data in Poland
+```{r}
+# Plot the dataset
+plot(full_counties[4:17], max.plot=15, border = grey(.3), key.pos=1, main = "Population increase in Polish counties 2002-2017")
+```
+  
+  From the maps it can be observed that some areas have constantly positive values of the population change, whereas othe areas have constantly negative values. This might inform about the ongoing process of depopulation of rural areas and movement of people towards urbanizaed areas.
+
+## Spatial autocorrelation in the country scale
+
+Data was examined for the existence of autocorrelation in the counties in 2017. 
+The most frequently used method to assess autocorrelation is Morans I value [Spatiotemporal Analysis] (https://www.mailman.columbia.edu/research/population-health-methods/spatiotemporal-analysis) and this method is used in the assignment.
+
+## Examine spatial autocorrelation
+
+To perform the autocorrelation analysis, first the neighbourhood list had to be created. The neighbourhood list included one neighbour only.
+```{r}
+# Create neighbourhood
+## Create centroids for the counties
+counties_c<-coordinates(counties)
+## Creating a list for 1 nearest neighbour
+myNB1 <- knn2nb(knearneigh(counties_c,1,TRUE)) 
+
+# Create list to store Moran test output
+Poland_MI <- list()
+
+# Execute Moran I Test
+for (i in 4:17) {
+  Poland_MI[[i-3]] <- capture.output(moran.test(na.omit(full_counties[[i]]), nb2listw(myNB1, style="B", zero.policy=TRUE), zero.policy=TRUE))
+}
+
+```
+
+*************
+
+# Suburbanization
+
+## Population trends in main cities and suburban zones
+
+### Main cities
+
+Cities with population over 500 000 people and their suburban zones (adjacent counties) were selected fo further analysis. In Poland these cities are:
+
+  * Wrocław
+  * Łódź
+  * Kraków
+  * Warszawa
+  * Poznań
+
+```{r}
+# Prepare the code of the unit to be the same as ID in the counties
+mainCities = mutate(mainCities, ID = as.numeric(kod)/1000)
+
+# Select the main cities
+city1 <- full_counties[full_counties$ID==mainCities$ID[1],]
+city2 <- full_counties[full_counties$ID==mainCities$ID[2],]
+city3 <- full_counties[full_counties$ID==mainCities$ID[3],]
+city4 <- full_counties[full_counties$ID==mainCities$ID[4],]
+city5 <- full_counties[full_counties$ID==mainCities$ID[5],]
+# And bind them into one sf object
+mainCitiesSet<-rbind(city1, city2, city3, city4, city5)
+# Plot main cities separately for better visibility
+plot(city1[4:17], main = "Wrocław", max.plot=15, border = grey(.2), key.pos=4)
+plot(city2[4:17], main = "Łódź", max.plot=15, border = grey(.2), key.pos=4)
+plot(city3[4:17], main = "Kraków", max.plot=15, border = grey(.2), key.pos=4)
+plot(city4[4:17], main = "Warszawa", max.plot=15, border = grey(.2), key.pos=4)
+plot(city5[4:17], main = "Poznań", max.plot=15, border = grey(.2), key.pos=4)
+```
+
+  It can be observed, that all of the cities had the value of population increase negative or slightly above zero (Warszawa). This can inform about the depopulation of the main urban areas of Poland.
+  
+```{r}
+# Extract data.frame from simple features objects 
+## ... for main cities
+mainCitiesSet_t <- mainCitiesSet
+st_geometry(mainCitiesSet_t) <- NULL
+## Create dataframe with average population increase values for all main cties
+mainCitiesSet_sum <- colSums(mainCitiesSet_t)
+mainCitiesSet_av <-mainCitiesSet_sum/nrow(mainCitiesSet_t)
+## Create time series with average population increase values for all main cties
+cities_av_ts <- ts(mainCitiesSet_av[4:17], start = 2003, end = 2016, frequency = 1)
+
+## Simplify and transpoze data to create ts
+mainCitiesSet_t["jpt_kod_je"]<-NULL
+mainCitiesSet_t["kod"]<-NULL
+mainCitiesSet_t["ID"]-> c_names
+mainCitiesSet_t["ID"]<- NULL
+mainCitiesSet_t <- as.data.frame(t(mainCitiesSet_t))
+
+### Create time-series
+city_ts<-ts(mainCitiesSet_t, start=2003, end=2016, frequency=1, names = unlist(c_names, use.names=FALSE))
+
+ts.plot(city_ts, main = "Population change in cities", col = 1:ncol(city_ts))
+legend("topleft", colnames(city_ts), col = 1:ncol(city_ts), lty=1, cex=.65, ncol=5)
+```
+   
+   The biggest population increase was observed in Warsaw (city code 1465). Warsaw is the capital city of Poland and is a tempting place to live for many Polish people.The increse in years 2002-2017 varied from orun 0% in the beginning of this period up to aroun 0,5% in 2017. 
+  The city wit the biggest population decrease was Łódź (city code 1061).  The annual decrease of population baried between 0,5% to 1% in each year. 
+  
+### Suburban zones
+
+```{r}
+# Select the suburban zones
+
+# Find the adjacent polygons to the main cities
+suburb1 <- full_counties[st_intersects(x = full_counties, y = city1, sparse = FALSE),] # Wrocław
+suburb2 <- full_counties[st_intersects(x = full_counties, y = city2, sparse = FALSE),] # Łódź
+suburb3 <- full_counties[st_intersects(x = full_counties, y = city3, sparse = FALSE),] # Kraków
+suburb4 <- full_counties[st_intersects(x = full_counties, y = city4, sparse = FALSE),] # Warszawa
+suburb5 <- full_counties[st_intersects(x = full_counties, y = city5, sparse = FALSE),] # Poznań
+
+suburbSet <- rbind(suburb1, suburb2, suburb3, suburb4, suburb5)
+# Disjoint the main cities from the set of suburban counties
+## Create centroids of the main cities
+city1centroid <- st_centroid(st_union(city1))
+city2centroid <- st_centroid(st_union(city2))
+city3centroid <- st_centroid(st_union(city3))
+city4centroid <- st_centroid(st_union(city4))
+city5centroid <- st_centroid(st_union(city5))
+
+## Disjoint the main cities in each region
+newSuburb1 <- suburb1[st_disjoint(x = suburb1, y = city1centroid, sparse = FALSE),]
+newSuburb2 <- suburb2[st_disjoint(x = suburb2, y = city2centroid, sparse = FALSE),]
+newSuburb3 <- suburb3[st_disjoint(x = suburb3, y = city3centroid, sparse = FALSE),]
+newSuburb4 <- suburb4[st_disjoint(x = suburb4, y = city4centroid, sparse = FALSE),]
+newSuburb5 <- suburb5[st_disjoint(x = suburb5, y = city5centroid, sparse = FALSE),]
+# Bind suburbs into one object
+newSuburbSet <- rbind(newSuburb1,newSuburb2,newSuburb3,newSuburb4,newSuburb5)
+
+# Plot each suburbian region separately vor better visibility
+plot(newSuburb1[4:17], main = "Wrocław", max.plot=15, border = grey(.2), key.pos=4)
+plot(newSuburb2[4:17], main = "Łódź", max.plot=15, border = grey(.2), key.pos=4)
+plot(newSuburb3[4:17], main = "Krakow", max.plot=15, border = grey(.2), key.pos=4)
+plot(newSuburb4[4:17], main = "Warszawa", max.plot=15, border = grey(.2), key.pos=4)
+plot(newSuburb5[4:17], main = "Poznań", max.plot=15, border = grey(.2), key.pos=4)
+
+```
+  
+  From the maps it can be observed that population in cities was decreasing, whereas population in the suburbs was increasing. The highest increase was observed in the county on the south from Warsaw in 2003. Altough Wrocław, Łódź and Kraków indicated constant population increase, which, when considered alongside with population decrease in these cities could inform us on the suburbanization process taking place, Warszawa and Poznań showed the population change close to zero. 
+  
+```{r}
+# Extract data.frame from simple features objects and for suburbian areas
+newSuburbSet_t <- newSuburbSet
+st_geometry(newSuburbSet_t) <- NULL
+## Create dataframe with average population increase values for all suburbs
+newSuburbSet_sum <- colSums(newSuburbSet_t)
+newSuburbSet_av <-newSuburbSet_sum/nrow(newSuburbSet_t)
+## Create time series with average population increase values for suburbs
+suburbs_av_ts <- ts(newSuburbSet_av[4:17], start = 2003, end = 2016, frequency = 1)
+
+## Simplify and transpoze data to create ts
+newSuburbSet_t["jpt_kod_je"]<-NULL
+newSuburbSet_t["kod"]<-NULL
+newSuburbSet_t["ID"] -> s_names
+newSuburbSet_t["ID"]<-NULL
+newSuburbSet_t <- as.data.frame(t(newSuburbSet_t))
+### Create time-series
+suburb_ts<-ts(newSuburbSet_t, start=2003, end=2016, frequency=1, names = unlist(s_names, use.names=FALSE))
+
+
+```
+  
+### Population trends in main cities and suburban zones 
+  
+```{r}
+plot(cities_av_ts, main="Average population change in main cities", ylab="Population change")
+plot(suburbs_av_ts, main="Average population change in suburbs", ylab="Population change")
+ts.plot(suburb_ts, main = "Population change in suburbs", col = 1:ncol(suburb_ts))
+legend("topright", colnames(suburb_ts), col = 1:ncol(suburb_ts), lty=1, cex=.65, ncol=6)
+```
+  
+  Avarage population change in main cities shows that the population was mainly decreasing, however, in the period 2008-2017 this decrease was decelerating. Morover,periodicity could be observed from the graph with peaks around 2005, 2010, 2013 and 2015.
+  Average population change in suburbs was continually positive. The average value was strongly affected by the population data for 2002 for one county, which is visible on the plot "Population change in suburbs". Excluding the 2002, it can be observed, that the main increase of the population in the suburbian areas took place in years 2007-2010.
+  Population in suburbian areas varied and reached values around 0 - 0,2 % of change. 
+
+```{r}
+acf(cities_av_ts, main="Average population change in main cities", ylab="Population change")
+acf(suburbs_av_ts, main="Average population change in suburbs", ylab="Population change")
+``` 
+
+  The average population in cities nor in suburbian areas had no significant autocorrelation.
+  
+## Spatial correlation
+
+### Spatial correlation of population increase in suburbian areas
+
+For suburban counties and for the main cities the Moran I Test was executed to examine them in regard to spatial correlation.
+
+```{r}
+# Create centroids for suburban counties
+suburbSet_c <- st_centroid(newSuburbSet) 
+
+## Save the dates for the output
+d <- newSuburbSet
+st_geometry(d) <- NULL
+dates <- colnames(d[4:17])
+
+# Create neighbourhood list for the suburban counties
+suburbSet_1NB <- knn2nb(knearneigh(as(suburbSet_c,"Spatial"),1,FALSE))
+
+# Create list to store Moran test output
+suburb_MI <- list()
+
+# Execute Moran I Test
+for (i in 4:17) {
+  suburb_MI[[i-3]] <- capture.output(moran.test(na.omit(newSuburbSet[[i]]), nb2listw(suburbSet_1NB, style="B", zero.policy=TRUE), zero.policy=TRUE))
+}
+```
+
+### Spatial correlation of population increase in main cities
+```{r}
+# Create centroids for suburban counties
+mainCitiesSet_c <- st_centroid(mainCitiesSet) # Return 17 points?
+
+# Create neighbourhood list for the suburban counties
+citiesSet_1NB <- knn2nb(knearneigh(as(mainCitiesSet_c,"Spatial"),1,FALSE))
+
+# Create list to store Moran test output
+cities_MI <- list()
+
+# Execute Moran I Test
+for (i in 4:17) {
+  cities_MI[[i-3]] <- capture.output(moran.test(na.omit(mainCitiesSet[[i]]), nb2listw(citiesSet_1NB, style="B", zero.policy=TRUE), zero.policy=TRUE))
+}
+```
+  
+*******
+  
+# Outputs
+
+## Region comparison
+
+Two cities were compared in this assignment: Warszawa and Łódź. They differed strongly in terms of population increase:
+
+### Warszawa
+
+```{r}
+ts.plot(city_ts[,4], main="Warszawa")
+acf(city_ts[,4], main= "Warszawa population autocorrelation")
+
+Warszawa_s <- newSuburb4
+st_geometry(Warszawa_s) <- NULL
+# In Warsaw 2002-2003 was excluded from the graph for the clarity
+Warszawa_s_ts<-ts(t(Warszawa_s[5:17]), start=2004, end=2016, frequency = 1)
+
+```
+It can be observed that the population of Warsaw is increasing in the period analyzed. The population increase is significantly autocorelated for Lag-1 (one year). The suburban area, however, shows decelerating increase of the population. 
+  On the Warsaw example we can observe, that the whole metropolitan region is growing. There is no clear effect of suburbanization, when the areas adjacent to the city become populated, with the simultaneous decrease of the city population.
+  
+```{r}
+ts.plot(city_ts[,2], main="Łódź")
+acf(city_ts[,2], main="Łódź autocorrelation")
+
+Lodz_s <- newSuburb2
+st_geometry(Lodz_s) <- NULL
+Lodz_s_ts<-ts(t(Lodz_s[4:17]), start=2003, end=2016, frequency = 1)
+ts.plot(Lodz_s_ts, main="Łódź suburbs", col=rainbow(10))
+```
+ 
+ It can be observed on the plot that the population of Łódź is decreasing in the period analyzed. The population change seem to have some kind of reguralirity, however, there is no significant autocorrelation observed. The suburban area show significant population increase for one county a small increase / decrease fot the two others.
+  On the Warsaw example we can observe a city, which population is decreasing, but there is no significant increase in the suburban area population. Therefore, a cler suburbanization process is not observed.
+  
+## Spatial correlation
+
+Moran’s I is a correlation coefficient that measures the overall spatial autocorrelation of the data set. Moran I Test was executed for the whole country, main cities and the suburbian regions. Outputs of the test are shown in the tables:
+
+  **Poland**
+```{r}
+for (i in (1:length(Poland_MI))) {print(paste(dates[i],": ",Poland_MI[[i]][10],Poland_MI[[i]][11])) }
+```  
+  For the all counties, Moran I Statistic had values close to 0, which indicate random distribution of the data. The Moran I statistics vary slightly from Expected value (-0.0026). The Variance of output is very small. This indicates that there is no spatial correlation of the data and no clustering can be observed.
+  
+  **Main cities**
+```{r}
+for (i in (1:length(cities_MI))) {print(paste(dates[i],": ",cities_MI[[i]][10],cities_MI[[i]][11])) }
+```
+  For the main cities, Moran I Statistic had values close to -1, which can indicate dispersion of the data. The Moran I statistics vary strongly from Expected value (-0.25). Morover, the Variance of output reaches values 0.2 - 0.3. This indicates that the statistic is not strongly significant.
+  
+  
+  **Suburban regions**
+```{r}
+for (i in (1:length(suburb_MI))) {print(paste(dates[i],": ",suburb_MI[[i]][10],suburb_MI[[i]][11])) }
+```
+  For the suburban areas, Moran I Statistic had values close to -0.1, which might indicate randoness of the data. The Moran I statistics vary from Expected value, but the diference is in a great way smaller than for the cities. The Variance of the output is small (0.01-0.09). This indicates that the output is significant, however, we do not receive confirmation regarding spatial correlation for the suburban areas.
+  
+****
+
+# Challenges
+
+Two main challenges might influence the analysis output. 
+  
+  First of all, the population balance (population data) used for the analysis was calculated using different methodology for years before 2009 and after 2010. This might result in errors biasing the input data.
+  
+  Secondly, the methodology used in the project does not give reliable results for the used sample. Moran I Test should be used on more than 30 observations and in adjacent polygons [Esri](https://pro.arcgis.com/en/pro-app/tool-reference/spatial-statistics/h-how-spatial-autocorrelation-moran-s-i-spatial-st.htm). This requirement was have been met for the analysis of all of the counties in Poland, however, not in case of the main cities and suburban zones analyses. A possible solution here would be using population data on NUTS 5 level (commune) and evaluating spatial correlation in the area of one city and the nearby units.
+
+*****
+
+# Conclusions
+
+## Summary of outputs
+
+Outcomes of the undertaken analysis shows that population in Poland in years 2002-2017 was slowly decreasing. In the scale of the whole country it can be observed, that some reions are constantly depopulating, when in the others the number of people is constantly growing. Moran I Test perofmred for all of the counties indicates that there is no spatial correlation of the population data for the whole country.
+  
+  Five main cities and their adjacent counties were selected for detailed analysis. Population in cities was decreasing, with the exeption of Warsaw, where, for the whole period analyzed, the number of inhabitants was growing. The opposite effects could be observed for the suburbs, where the number of people, in most of the cases, was increasing.
+  
+  Moran I Test gave no strongly significant results for spatial correlation of population in main cities. Moran I Test results for the suburban regions indicate the random distribution of population values.
+
+
+## Tested hypothesis
+
+Hypothesis tested in the project (H0) stated that there is no suburbanization effect taking place in the Polish counties. However, from the plots of the main cities and thei surrounding areas in period 2002-2017 we can observe, that an overall trend of decreasing the population in cities and increase in suburban can be observed. Therefore, this hypothesis needs to be rejected.
+  
+  The alternative hypothesis (H1) stated that suburbanization is a process occuring around the main Polish cities in the period 2002 - 2017. Thus, the population in the cities decrease, wheras the population in the adjacent counties insreseas. However, on the example of Łódź it can be observed, that there are cities with decreasing population and decreasing suburban area population at the same time. Thus, as this hypothesis is not true for all the cases, it needs to be rejected.
+  
+  The second alternative hypothesis (H2) tested in the project stated  that there can be suburbanization observed in the areas of the main Polish cities, however, not in all of them. This hypothesis was not rejected. This hypothesis is in line with the current state of the art of the suburbanization studies in Poland ([Szukalski, 2015](http://dspace.uni.lodz.pl/xmlui/bitstream/handle/11089/11164/2015-04%20Suburbanizacja.pdf?sequence=1&isAllowed=y)).
+  
+****
+
+# References
+
+  * ESRI, https://pro.arcgis.com/en/pro-app/tool-reference/spatial-statistics/h-how-spatial-autocorrelation-moran-s-i-spatial-st.htm
+  * Komornicki T., Szejgiec-Kolenda B., Degórska B., Goch K., Śleszyński P., Bednarek-Szczepańska M., Siłka P., Spatial planning determinants of cohesion policy implementation in Polish regions. (2019), Europa XXI, in print
+  * Spatiotemporal Analysis, https://www.mailman.columbia.edu/research/population-health-methods/spatiotemporal-analysis
+  * Szukalski, P., Suburbanizacja dużych miast w Polsce, D. (2012). „Demografia i Gerontologia Społeczna–Biuletyn Informacyjny” 6. Instytut Socjologii, Uniwersytet Łódzki.
+  * Wikipedia, https://en.wikipedia.org/wiki/Suburbanization
+  
+  
+
+
+
+
+
+
+

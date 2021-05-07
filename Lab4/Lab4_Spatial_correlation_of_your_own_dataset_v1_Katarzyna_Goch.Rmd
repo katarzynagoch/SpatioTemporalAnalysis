@@ -1,0 +1,85 @@
+---
+title: "Lab4: Spatial correlation of your own dataset"
+author: "Katarzyna Goch"
+date: "22 Nov 2018"
+output: html_document
+---
+
+This is the report for the fourth assignment "Spatial correlation of your own dataset" from course "Analysis of Spatio-Temporal Data", WS 2018/19.  
+Supervisor: prof. Edzer Pebesma
+
+```{r setup, include=FALSE}
+
+library(sp)
+library(gstat)
+library(rgdal)
+
+```
+  
+****************
+## Import your own geostatistical dataset in R
+Retail gas prices for reporting gas stations in Chicago on one day in April 2011 are shown. More information regarding the data can be found here: https://hub.arcgis.com/datasets/961f99c9cb254476989de907c1e0937d_0?geometry=-89.515%2C41.654%2C-86.902%2C42.012
+
+```{r, out.width="90%", fig.align='center'}
+# Read in the shapefile
+shapePKT <- readOGR(dsn="Chicago", layer="Chicago_April_05_Prices")
+
+```
+
+## Convert  it into a spatial object (an object that knows what its spatial coordinates are)
+Shapefile was read as a spatial object. 
+```{r, out.width="90%", fig.align='center'}
+# Lookup the data
+summary(shapePKT)
+
+# Assign projection
+shapePKt <- spTransform(shapePKT, CRS=CRS("+init=epsg:26971"))
+
+# Plot the example of data in the dataset
+spplot(shapePKT, 'Price', main='Retail gas prices on one day in April 2011')
+
+```
+
+## Do you know the coordinate reference system? If yes, what is it?
+Description of the shapefile stated that the coordinate reference system of data was WGS 84 (EPSG: 4326). It was assigned the EPSG projection 26971 - NAD83 / Illinois East.
+
+## Do you expect the measured values to be spatially correlated?
+Yes. The prices closer to the city centre should be higher than the ones ine the suburbs. Prices should lower with the increase of distance from the centre.
+
+## Compute a sample variogram of your dataset, and experiment a bit with the cutoff and width settings
+
+```{r, out.width="90%", fig.align='center'}
+# First compute a histogram
+hist(shapePKT$Price)
+```
+On the histogram we can observe a normal distribution of prices. Most of the stations had prices around 4 $/gallon.
+  
+```{r, out.width="90%", fig.align='center'}
+# Plot variogram
+plot(variogram(Price~1,data=shapePKT))
+
+```
+  On the variogram we can observe that the variance of the measured values grows in a stable way till 30 km. Then it stabilize for around 5 km and growes again. To obtain the full picture, the cutoff and width variables were changed for cutoff distance of 200 km and width between the points to 5 km. Moreover, the viarogram is plotted for the N-S direction:
+  
+```{r, out.width="90%", fig.align='center'}
+# Plot variogram for B(a)P
+plot(variogram(Price~1,data=shapePKT, cutoff=200, width=5, alpha=c(180)))
+
+```
+  
+## Fit a variogram model to your sample variogram
+From the variogram it can be observed that the variance shape a wave. The nugget effect is around 0.0045, range is around 70 km and sill is around 0.02. This values are apllied for the fitting exponential model, the fitting radius is set for 5 km:
+```{r, out.width="90%", fig.align='center'}
+# Fit model
+v <- variogram(Price~1,data=shapePKT, cutoff=150, width=5) 
+f = fit.variogram(v, vgm("Wav"))
+plot(v, f)
+
+```
+
+
+## Describe, in words, the spatial correlation of your variable (is it strong,  weak, or absent; does it extend to large distances or only to small)
+The spatial correlation of my data is very strong in the distance 0-10 km, strong in the distance 10 - 30 km, moderate in the distance 30-50 km, weak in the distance of 50-75 km and very weak in the distance 75-110 km.
+  Then it grows again and is weak in the distance of around 110-120 km, moderate 120-140 km with stron correlation in the distance of around 125 km and very strong in the distance of around 150 km.
+  
+  

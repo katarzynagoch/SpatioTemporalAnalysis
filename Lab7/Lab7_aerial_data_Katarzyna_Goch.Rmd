@@ -1,0 +1,90 @@
+---
+title: "Lab7: Aeral data"
+author: "Katarzyna Goch"
+date: "20 Dec 2018"
+output: html_document
+---
+
+This is the report for the seventh assignment "Aeral data" from course "Analysis of Spatio-Temporal Data", WS 2018/19.  
+Supervisor: prof. Edzer Pebesma
+
+```{r setup, include=FALSE}
+
+library(sp)
+library(spdep)
+library(spData)
+#library(gstat)
+library(rgdal)
+
+```
+  
+****************
+## North Caorlina SIDS dataset
+In the assignment, I am using North Caroline SIDS dataset. The data set also contains the neighbour list given by Cressie and Chan (1989) omitting self-neighbours (ncCC89.nb), and the neighbour list given by Cressie and Read (1985) for contiguities (ncCR85.nb)
+
+```{r}
+# Use NC SIDS (nc.sids) data as an example
+example(nc.sids, package="spData")
+
+```
+
+## Compute a moran's test to see if the variable SID74 (sudden infant death cases in 1974-1978) is spatially correlated
+"hese spatial predictors can be used in multivariate statistical methods to provide spatially-explicit multiscale tools." https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html
+
+  Moran's test on the number of infants deaths:
+
+```{r}
+# ncCC89_nb the neighbour list omitting self-neighbours ; ncCC85_nb the neighbour list for contiguities
+moran.test(nc.sids$SID74, nb2listw(ncCC89_nb, style="B", zero.policy=TRUE), randomisation=TRUE, zero.policy=TRUE,  alternative="greater", rank = FALSE, na.action=na.fail, spChk=NULL, adjust.n=TRUE, drop.EI2=FALSE)
+
+```
+
+  Moran's test using the infant's deaths indicator
+```{r}
+# indicator ratio of the sudden infant death cases to the total number of births
+sids.p <- nc.sids$SID74 / nc.sids$BIR74 
+moran.test(sids.p, nb2listw(ncCC89_nb, style="B", zero.policy=TRUE), randomisation=TRUE, zero.policy=TRUE,  alternative="greater", rank = FALSE, na.action=na.fail, spChk=NULL, adjust.n=TRUE, drop.EI2=FALSE)
+
+```
+ Moran's I is a measure of spatial autocorrelation. The infant's deaths described with the use of an indicator (ratio of the sudden infant death cases to the total number of births) have a higher spatial autocorrelation.
+ Interpratation of Epectation and Variance?
+
+## Use also moran.mc to test for spatial correlation; what is the difference to moran.test?
+
+```{r}
+# Do Permutation test for Moran's I statistic
+moran.mc(sids.p, nb2listw(ncCC89_nb, style="B", zero.policy=TRUE), nsim=999, zero.policy=TRUE)
+
+```
+  Moran's test for spatial autocorrelation using a spatial weights matrix in weights list form. The assumptions underlying the test are sensitive to the form of the graph of neighbour relationships and other factors, and results may be checked against those of moran.mc permutations.
+  
+  **A permutation test** for Moran's I statistic calculated by using nsim random permutations of x for the given spatial weighting scheme, to establish the rank of the observed statistic in relation to the nsim simulated values.
+  
+  The results of Moran's test state that the statistic is the same as in the Moran's test. The results are statistically significant (p-value = 0.001)
+    
+## Try using different neigbourhoods
+Monte Carlo simulation of Moran I for adjacent states
+```{r}
+# Do Permutation test for Moran's I statistic
+moran.mc(sids.p, nb2listw(ncCR85_nb, style="B", zero.policy=TRUE), nsim=999, zero.policy=TRUE)
+```
+
+### Trying KNN with 1 neighbour
+```{r}
+# Create points for the states
+kPoints <- coordinates(nc.sids)
+myNB1 <- knn2nb(knearneigh(kPoints,1,TRUE))
+moran.mc(sids.p, nb2listw(myNB1, style="B", zero.policy=TRUE), nsim=999, zero.policy=TRUE)
+```
+
+### Trying KNN with 2 neighbours
+```{r}
+# Create points for the states
+kPoints <- coordinates(nc.sids)
+myNB2 <- knn2nb(knearneigh(kPoints,2,TRUE))
+moran.mc(sids.p, nb2listw(myNB2, style="B", zero.policy=TRUE), nsim=999, zero.policy=TRUE)
+```
+
+
+
+

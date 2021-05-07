@@ -1,0 +1,89 @@
+---
+title: "Lab3: Analyse your own time series"
+author: "Katarzyna Goch"
+date: "22 paüdziernika 2018"
+output: html_document
+---
+
+This is the report for the third assignment "Analyse your own time series" from course "Analysis of Spatio-Temporal Data", WS 2018/19.  
+Supervisor: prof. Edzer Pebesma
+
+```{r setup, include=FALSE}
+
+library(knitr)
+library(xts)
+library(forecast)
+library(tseries)
+library(ggplot2)
+knitr::opts_chunk$set(echo = TRUE)
+```
+  
+****************
+
+
+# Time series analyses
+```{r, out.width="90%", fig.align='center'}
+# Read in the time-series data for Italy
+df1 <- read.csv2("TimeSeries1_AirQuality_week.csv",
+                header=TRUE,
+                quote="\"",
+                stringsAsFactors = FALSE,
+                strip.white = TRUE)
+
+# Create a new column and store date-time data
+new_col <-as.POSIXct(paste(df1$Date, df1$Time), format="%d.%m.%Y %H:%M:%S")
+df1$datetime = new_col
+
+# Remove old date and time columns
+drop <- c("Date", "Time")
+df1 <- df1[,!(names(df1) %in% drop)]
+
+# plot the dataframe
+ggplot(df1, aes(datetime, PT08S1_CO_)) + 
+  geom_line() + ylab("PT08S1(CO)") + xlab("date") + ggtitle("Air quality in a city in Italy")
+
+# Create time series
+ts1 <- ts(df1[,c('PT08S1_CO_')], frequency = 24)
+plot(ts1, ylab="PT08S1(CO)", xlab="day")
+seasonplot(ts1, col=rainbow(7), type="l")
+
+```
+
+## Plot autocorrelation and partial autocorrelations; interpret these
+```{r}
+# Plot autocorrelation
+acf(ts1, lag.max=168)
+
+```
+  
+The time series is significantly positively correlated with its daily lags. Thus, a seasonality and regular, weekly periodicity or a trend might be observed. CZY TO PRAWDA?
+What is more, negative correlations can be observed within the daily lags. This may imply existence of hourly periodicity. The time series correspond to hourly emission of CO, so the hourly periodicity might be related to the morning and afternoon roush hours.
+
+
+```{r}
+# Plot partial autocorrelation
+pacf(ts1, lag.max=168)
+
+# If taking into account multi-seasonality
+msts1 <- msts (ts1, seasonal.periods=c(24,168),ts.frequency=24)
+plot(msts1)
+
+```
+  
+Partial autocorrelation of the time series shows significant correlation for Lag-1. This implies that the daily periodicity can be observed in the analyzed data.  Lag after Lag-0 is significantly negatively correlated, whereas it was significantly positively correletad for autocrrelation. WHAT DOES IT MEAN?
+  Again, significant negative correlation can be observed for ~Lag-0.7 WHAT DOES THIS MEAN? 
+NIE DO KO—CA WIEM CO TU SI  DZIEJE
+CZY POINNAM ANALIZOWA∆ MULTISEASONAL TIME TRENDS
+msts1 <- msts (ts1, seasonal.periods=c(24,168),ts.frequency=24)
+plot(msts1)
+## Choose and fit an ARIMA model, and evaluate the outcome
+```{r}
+# Autoatically select p, d and q and estimate the corresponding model 
+auto.arima(ts1)
+```
+
+## Consider whether your time series has known periodicities, e.g. using stl or/and HoltWinters
+
+## For a model you chose (with or without periodicity) try to make predictions (forecasts) for the next time steps; consider the prediction standard errors if available
+
+## Plot the time series along with forecasts, and prediction intervals, for both of the time series
