@@ -15,6 +15,6 @@ All the submissions are saved as R Markdown files.
 ## Lab 6
 [Lab6](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab6/Lab6_Work_with_your_own_point_pattern_data_Katarzyna_Goch_v1.Rmd): Point pattern analysis
 ## Lab 7
-[Lab7](https://github.com/katarzynagoch/SpatioTemporalAnalysis/tree/main/Lab7): Spatial correlation of aeral data
+[Lab7](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab7/Lab7_aerial_data_Katarzyna_Goch.Rmd): Spatial correlation of aeral data
 ## Final project
 [FinalProject](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/FinalProject/Katarzyna_Goch_Final_Project_final.Rmd): Analysis of suburbanization in Poland using aeral timeseries of population in county scale.
