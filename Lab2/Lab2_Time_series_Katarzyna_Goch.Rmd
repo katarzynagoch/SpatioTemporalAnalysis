@@ -1,0 +1,185 @@
+---
+title: 'Lab2: Time series'
+author: "Katarzyna Goch"
+date: "21st Oct 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+This is the report for the first assignment "Your own time series" from course "Analysis of Spatio-Temporal Data", WS 2018/19.  
+Supervisor: prof. Edzer Pebesma
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(ggplot2)
+library(reshape2)
+(WD <- getwd())
+if (!is.null(WD)) setwd(WD)
+```
+  
+****************
+
+# Time series description
+
+## Time series 1: Air quality in Italy
+### What is the time series about?
+The dataset contains 9358 instances of hourly averaged responses from an array of 5 metal oxide chemical sensors embedded in an Air Quality Chemical Multisensor Device. The device was located on the field in a significantly polluted area, at road level,within an Italian city. Data were recorded from March 2004 to February 2005 (one year)representing the longest freely available recordings of on field deployed air quality chemical sensor devices responses. Ground Truth hourly averaged concentrations for CO, Non Metanic Hydrocarbons, Benzene, Total Nitrogen Oxides (NOx) and Nitrogen Dioxide (NO2) and were provided by a co-located reference certified analyzer. Evidences of cross-sensitivities as well as both concept and sensor drifts are present as described in De Vito et al., Sens. And Act. B, Vol. 129,2,2008, eventually affecting sensors concentration estimation capabilities. Missing values are tagged with -200 value. Data were obtained on 15th Oct 2018 from <https://archive.ics.uci.edu/ml/datasets/Air+Quality#>.
+
+Names and description of the variables used in the database can be found below:
+
+```{r, echo=FALSE}
+# Read in the first time-series data legend
+dfl1 <- read.csv2("TimeSeries1_AirQualityUCI_legend.csv",
+                header=TRUE,
+                quote="\"",
+                stringsAsFactors = FALSE,
+                strip.white = TRUE)
+
+# Print out the legend
+kable (dfl1)
+
+```
+
+
+  
+  
+```{r, echo=FALSE, out.width="100%", fig.align='center'}
+# Read in the time-series data for Italy
+df1 <- read.csv2("TimeSeries1_AirQualityUCI_2004_03_week.csv",
+                header=TRUE,
+                quote="\"",
+                stringsAsFactors = FALSE,
+                strip.white = TRUE)
+
+
+# Omit empty values
+df1 <- na.omit(df1, cols="CO_GT_")
+
+# Create a new column and store date-time data
+new_col <-as.POSIXct(paste(df1$Date, df1$Time), format="%d.%m.%Y %H:%M:%S")
+df1$datetime = new_col
+
+# Remove columns "Date" and "Time"
+df11 <- df1[colnames(df1)[4:16]]
+
+# Prepare data for plotting
+meltdf11 <- melt(df11,id='datetime')
+
+# Plot
+ggplot(data = meltdf11, aes(x = datetime, y = value, color = variable)) + geom_line() + labs(x="Date", y="Value", colour = "Measurement", title="Hourly averaged responses from metal oxide chemical sensors")
+```
+  
+In the assignment the **true hourly averaged concentration CO** is analyzed.
+  
+
+```{r, echo=FALSE, out.width="90%", fig.align='center'}
+ggplot(data = df11, aes(x = datetime, y = CO_GT_, color=CO_GT_)) + geom_line() +
+  labs(x="Date", y="True hourly averaged concentration CO in mg/m^3 (reference analyzer)", colour = "Measurement", title="Hourly CO concentration")
+
+```
+
+  
+
+
+### What makes this data set a time series?
+Data set covers hourly responses averages recorded by measuring equipment, listed in a time order. They create a sequence of temporally ordered observations. For each date and time there is easured an averaged concentration of CO.
+
+### How long is the time series?
+```{r, include=FALSE}
+# Extract the column with years
+df1[,'Date'] <- as.Date(df1[,'Date'],"%d.%m.%Y")
+dates1 <- df1[,'Date']
+startDate <- min(dates1)
+endDate <- max(dates1)
+period = as.numeric(format(as.Date(endDate,"%Y-%m-%d"),"%d")) - as.numeric(format(as.Date(startDate,"%Y-%m-%d"),"%d")) +1
+```
+
+Time series data covers `r period` days.
+
+### What is the temporal extent of the time series (mention start and end time)
+The time series were collected in the following period:  
+Start date: `r startDate`  
+Stop date: `r endDate`  
+
+### What is the temporal resolution, or frequency of the time series?
+Time series were collected with an hourly frequency.
+
+### Do the values in the time series refer to a time instance or a time interval?
+Values in the time series refer to 1 hour time interval.
+
+### Is the time series strictly regular, weakly regular, or irregular?
+Time series is strictly regular.
+
+*****************
+
+## Time series 2: GDP for Poland
+### What is the time series about?
+Penn World Tables (PWT) version 9.0 is a database with information on relative levels of income, output, input and productivity, covering 182 countries.  
+The PWT are described in Feenstra, Robert C., Robert Inklaar and Marcel P. Timmer (2015), "The Next Generation of the Penn World Table" American Economic Review, 105(10), 3150-3182, available for download at <http://www.ggdc.net/pwt>. Dataset was obtained on 21st Oct 2018.
+  
+Names and description of the variables used in the database can be found below:
+
+```{r, echo=FALSE}
+# Read in the second time-series data legend
+df2_l <- read.csv2("TimeSeries2_Penn_World_Tables_Poland_legend.csv",
+                header=TRUE,
+                quote="\"",
+                stringsAsFactors = FALSE,
+                strip.white = TRUE)
+
+# Print out the legend
+kable (df2_l)
+
+```
+
+In the next assignment the **expenditure-side real GDP at chained purchasing power parity (PPPs) for Poland** is analyzed.
+  
+  
+```{r, echo=FALSE}
+# Read in the time-series data for Poland
+df2 <- read.csv2("TimeSeries2_Penn_World_Tables_Poland.csv",
+                header=TRUE,
+                quote="\"",
+                stringsAsFactors = FALSE,
+                strip.white = TRUE)
+
+# Plot GDP for Poland
+plotGDP <- qplot(year, rgdpe, data=df2,xlab="Year", ylab="Expenditure-side real GDP at chained PPPs (in mil. 2011US$)",main="Expenditure-side real GDP at chained PPPs in Poland, 1970-2014", geom="line")
+plotGDP
+```
+
+
+### What makes this data set a time series?
+This data set provides series of annual indicators related to economy listed in a time order. Data set provide a  sequence of temporally ordered observations. For each record there is a pair of time (given year) and observations (economical indicator).
+
+
+### How long is the time series?
+
+```{r, include=FALSE}
+# Extract the column with years
+years <- df2[,'year']
+period = max(years)-min(years) + 1
+years <- as.Date(paste(years, 12, 31, sep = "-")) # JAK TEGO NIE DRUKOWAÆ
+startDate <- min(years)
+endDate <- max(years)
+```
+
+Time series data for Poland covers `r period` years.
+
+
+### What is the temporal extent of the time series (mention start and end time)
+The time series for Poland cover period from 1970 to 2014. Ony year was provided in the dataset, therefore the last day of the year is assumed as a day and month value for the date:  
+Start date: `r startDate`  
+Stop date: `r endDate`  
+
+### What is the temporal resolution, or frequency of the time series?
+Data were collected annually.
+
+### Do the values in the time series refer to a time instance or a time interval?
+Values in the time series refer to one year time interval.
+
+### Is the time series strictly regular, weakly regular, or irregular?
+Time series is strictly regular.
+

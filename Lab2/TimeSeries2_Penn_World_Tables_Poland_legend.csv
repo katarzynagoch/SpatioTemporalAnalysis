@@ -1,0 +1,48 @@
+Variable name;Variable definition
+countrycode;3-letter ISO country code
+country;Country name
+currency_unit;Currency unit
+year;Year
+rgdpe;Expenditure-side real GDP at chained PPPs (in mil. 2011US$)
+rgdpo;Output-side real GDP at chained PPPs (in mil. 2011US$)
+pop;Population (in millions)
+emp;Number of persons engaged (in millions)
+avh;Average annual hours worked by persons engaged
+hc;Human capital index, based on years of schooling and returns to education
+ccon;Real consumption of households and government, at current PPPs (in mil. 2011US$)
+cda;Real domestic absorption, (real consumption plus investment), at current PPPs (in mil. 2011US$)
+cgdpe;Expenditure-side real GDP at current PPPs (in mil. 2011US$)
+cgdpo;Output-side real GDP at current PPPs (in mil. 2011US$)
+ck;Capital stock at current PPPs (in mil. 2011US$)
+ctfp;TFP level at current PPPs (USA=1)
+cwtfp;Welfare-relevant TFP levels at current PPPs (USA=1)
+rgdpna;Real GDP at constant 2011 national prices (in mil. 2011US$)
+rconna;Real consumption at constant 2011 national prices (in mil. 2011US$)
+rdana;Real domestic absorption at constant 2011 national prices (in mil. 2011US$)
+rkna;Capital stock at constant 2011 national prices (in mil. 2011US$)
+rtfpna;TFP at constant national prices (2011=1)
+rwtfpna;Welfare-relevant TFP at constant national prices (2011=1)
+labsh;Share of labour compensation in GDP at current national prices
+delta;Average depreciation rate of the capital stock
+xr;Exchange rate, national currency/USD (market+estimated)
+pl_con;Price level of CCON (PPP/XR), price level of USA GDPo in 2011=1
+pl_da;Price level of CDA (PPP/XR), price level of USA GDPo in 2011=1
+pl_gdpo;Price level of CGDPo (PPP/XR),  price level of USA GDPo in 2011=1
+i_cig;0/1/2: relative price data for consumption, investment and government is extrapolated (0), benchmark (1) or interpolated (2)
+i_xm;0/1/2: relative price data for exports and imports is extrapolated (0), benchmark (1) or interpolated (2)
+i_xr;0/1: the exchange rate is market-based (0) or estimated (1)
+i_outlier;0/1: the observation on pl_gdpe or pl_gdpo is not an outlier (0) or an outlier (1)
+cor_exp;Correlation between expenditure shares of the country and the US (benchmark observations only)
+statcap;Statistical capacity indicator (source: World Bank, developing countries only)
+csh_c;Share of household consumption at current PPPs
+csh_i;Share of gross capital formation at current PPPs
+csh_g;Share of government consumption at current PPPs
+csh_x;Share of merchandise exports at current PPPs
+csh_m;Share of merchandise imports at current PPPs
+csh_r;Share of residual trade and GDP statistical discrepancy at current PPPs
+pl_c;Price level of household consumption,  price level of USA GDPo in 2011=1
+pl_i;Price level of capital formation,  price level of USA GDPo in 2011=1
+pl_g;Price level of government consumption,  price level of USA GDPo in 2011=1
+pl_x;Price level of exports, price level of USA GDPo in 2011=1
+pl_m;Price level of imports, price level of USA GDPo in 2011=1
+pl_k;Price level of the capital stock, price level of USA in 2011=1
