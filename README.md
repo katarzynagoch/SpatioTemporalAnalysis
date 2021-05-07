@@ -7,14 +7,14 @@ All the submissions are saved as R Markdown files.
 ## Lab 2
 [Lab2](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab2/Lab2_Time_series_Katarzyna_Goch.Rmd): Example of time series data.
 ## Lab 3
-Time series analysis
+[Lab3](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab3/Lab3_Analyse_your_own_time_series_Katarzyna_Goch.Rmd): Time series analysis
 ## Lab 4
-Spatial correlation of a geospatial point dataset
+[Lab4](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab4/Lab4_Spatial_correlation_of_your_own_dataset_v1_Katarzyna_Goch.Rmd): Spatial correlation of a geospatial point dataset
 ## Lab 5
-Spatial interpolation of a geospatial point dataset
+[Lab5](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab5/Lab5_Spatial_interpolation_of_your_own_dataset_Chernobyl_Katarzyna_Goch.Rmd): Spatial interpolation of a geospatial point dataset
 ## Lab 6
-Point pattern analysis
+[Lab6](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab6/Lab6_Work_with_your_own_point_pattern_data_Katarzyna_Goch_v1.Rmd): Point pattern analysis
 ## Lab 7
-Spatial correlation of aeral data
+[Lab7](https://github.com/katarzynagoch/SpatioTemporalAnalysis/tree/main/Lab7): Spatial correlation of aeral data
 ## Final project
-Analysis of suburbanization in Poland using aeral timeseries of population in county scale.
+[FinalProject](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/FinalProject/Katarzyna_Goch_Final_Project_final.Rmd): Analysis of suburbanization in Poland using aeral timeseries of population in county scale.
