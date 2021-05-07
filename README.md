@@ -5,7 +5,7 @@ This repository stores projects submitted for the course Analysis of Spatio-Temp
 All the submissions are saved as R Markdown files.
 
 ## Lab 2
-Example of time series data.
+[Lab2](https://github.com/katarzynagoch/SpatioTemporalAnalysis/blob/main/Lab2/Lab2_Time_series_Katarzyna_Goch.Rmd): Example of time series data.
 ## Lab 3
 Time series analysis
 ## Lab 4
